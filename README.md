@@ -1,11 +1,11 @@
-# Agent Sentinel Shield ⚔️🛡️
+# Awesome AI Agent Security ⚔️🛡️
 
 **The AI Agent Security Range — Learn to Attack, Learn to Defend.**
 
 > *"禁毒的人最懂毒。做安全的人最懂攻击。"*
 > *"Drug enforcement officers know drugs best. Security professionals know attacks best."*
 
-[![CI](https://github.com/zhangjunmengyang/agent-sentinel-shield/actions/workflows/ci.yml/badge.svg)](https://github.com/zhangjunmengyang/agent-sentinel-shield/actions)
+[![CI](https://github.com/zhangjunmengyang/awesome-ai-agent-security/actions/workflows/ci.yml/badge.svg)](https://github.com/zhangjunmengyang/awesome-ai-agent-security/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -43,11 +43,11 @@ We fill that gap. Not an awesome list. A live firing range with real ammo.
 ## Project Overview
 
 ```
-agent-sentinel-shield/
-├── shield/          # 🛡️ Defense — Six-layer runtime protection
+awesome-ai-agent-security/
 ├── attacks/         # ⚔️ Offense — Red team toolkit & attack simulation
-├── research/        # 📚 Knowledge — Threat intelligence & theory
-├── tests/           # 🧪 Testing — Automated attack-defense validation
+├── shield/          # 🛡️ Defense — Six-layer runtime protection (reference impl)
+├── research/        # 📚 Knowledge — Threat intelligence, theory & philosophy
+├── tests/           # 🧪 Testing — 52 tests, automated attack-defense validation
 └── examples/        # 🎯 Demos — Interactive demonstrations
 ```
 
@@ -190,8 +190,8 @@ Choose your path:
 ### 🛡️ **Defenders**: Test Your Security
 
 ```bash
-git clone https://github.com/zhangjunmengyang/agent-sentinel-shield
-cd agent-sentinel-shield
+git clone https://github.com/zhangjunmengyang/awesome-ai-agent-security
+cd awesome-ai-agent-security
 pip install -e .
 
 # Initialize shields in your agent workspace

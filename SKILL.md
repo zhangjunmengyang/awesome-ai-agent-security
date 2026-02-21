@@ -1,7 +1,7 @@
 ---
-name: agent-sentinel-shield
+name: awesome-ai-agent-security
 description: "Six-layer runtime defense system for AI agents — prompt injection detection, action whitelisting, soul file protection, memory poisoning defense, persona drift detection, and supply chain audit."
-homepage: "https://github.com/zhangjunmengyang/agent-sentinel-shield"
+homepage: "https://github.com/zhangjunmengyang/awesome-ai-agent-security"
 metadata:
   clawdbot:
     emoji: "🛡️"
