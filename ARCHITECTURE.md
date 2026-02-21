@@ -426,7 +426,68 @@ shield/
     └── default.yaml    # 默认配置
 ```
 
+## ⚔️ 攻击侧架构（Red Team Toolkit）
+
+> 不知攻，焉知防。
+
+### 设计原则
+
+1. **真实攻击优先** — 所有 payload 来自真实 CVE、学术论文、安全博客，不是编的
+2. **攻防对称** — 每面盾都有对应的攻击模块测试它
+3. **可度量** — 自动统计检测率、绕过率、误报率
+4. **负责任** — 仅用于测试自己的系统，不生成可直接武器化的完整攻击链
+
+### 攻击模块
+
+```
+attacks/
+├── prompt_injection.py    # 注入 payload 生成器（直接/间接/混淆/渐进/伪权威）
+├── memory_poisoning.py    # 记忆投毒攻击库（伪授权/行为修改/身份篡改/持久后门）
+├── tool_abuse.py          # 工具滥用攻击库（数据外泄/命令注入/权限提升/供应链）
+├── red_team.py            # 红队测试运行器（一键战役 + 检测率报告）
+└── cli.py                 # 攻击工具 CLI
+```
+
+### 攻防对应关系
+
+| 攻击模块 | 对应防御盾 | 攻击向量 |
+|---------|----------|---------|
+| prompt_injection → direct | Input Shield L1 | 指令覆盖、角色扮演 |
+| prompt_injection → indirect | Input Shield L2 | 嵌入文档/网页的隐藏指令 |
+| prompt_injection → obfuscation | Input Shield L1-L3 | Base64/Unicode/零宽字符 |
+| memory_poisoning → authority | Memory Shield | 伪造管理员授权 |
+| memory_poisoning → identity | Soul Shield | SOUL.md 引用篡改 |
+| tool_abuse → exfiltration | Action Shield | Markdown 图片注入、curl 外泄 |
+| tool_abuse → privilege | Action Shield | sudo/chmod/crontab |
+| tool_abuse → supply_chain | Supply Shield | 恶意 MCP 工具描述 |
+
+### Red Team Runner 流程
+
+```
+┌──────────────────┐
+│ Load Attack DB   │  ← 所有攻击 payload
+└────────┬─────────┘
+         │
+    ┌────▼────┐
+    │ Target  │  ← 选择测试目标（哪些盾）
+    └────┬────┘
+         │
+    ┌────▼──────────────┐
+    │ Execute Campaign  │  ← 逐个 payload 测试
+    │  ├─ Input Shield  │
+    │  ├─ Memory Shield │
+    │  ├─ Action Shield │
+    │  └─ Soul Shield   │
+    └────┬──────────────┘
+         │
+    ┌────▼────────────┐
+    │ Generate Report │  ← 检测率/绕过率/分类统计
+    └─────────────────┘
+```
+
 ## 实现优先级
+
+### 防御侧
 
 | 阶段 | 盾 | 理由 |
 |------|-----|------|
@@ -436,3 +497,13 @@ shield/
 | P1 | Action Shield | 行为拦截兜底 |
 | P2 | Persona Shield | 需要 LLM，先把不需要 LLM 的做完 |
 | P2 | Supply Shield | 安装频率低，优先级相对靠后 |
+
+### 攻击侧
+
+| 阶段 | 模块 | 理由 |
+|------|------|------|
+| P0 | Prompt Injection Generator | 最核心的攻击面 |
+| P0 | Red Team Runner | 攻防验证的基础设施 |
+| P1 | Memory Poisoning | 跨会话持久化攻击 |
+| P1 | Tool Abuse | RCE 是最高危 |
+| P2 | Supply Chain Simulation | 生态系统层面的攻击 |
