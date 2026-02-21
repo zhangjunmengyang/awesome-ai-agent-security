@@ -313,34 +313,56 @@ class MemoryShield:
 
 ---
 
-### 🎭 Persona Shield（人格锚定盾）
+### 🎭 Persona Shield（人格锚定盾）— ✅ 已实现 (v0.4.0)
 
 **守护点**：Agent 输出的人格一致性
 
-**检测方法**：
-1. 提取 SOUL.md 中的核心人格特征（语气、价值观、行为倾向）
-2. 对 Agent 最近 N 轮输出做人格评分
-3. 评分与基线对比，超过阈值则告警
+**实现状态**：v0.4.0 已通过 `memory_guard.py` 的 drift 子命令完整实现。
 
-**实现**：需要 LLM。给一个小模型发送：
-```
-以下是 Agent 的人格定义：
-{soul_summary}
+**实现架构（非 LLM 方案，纯统计 + 可选 embedding）**：
 
-以下是 Agent 最近的 10 条输出：
-{recent_outputs}
+1. **基线构建** (`drift baseline`)：
+   - 从 SOUL.md 提取 `## 道` 段落（最强人格信号）
+   - 提取 blockquote 价值锚点（`> ...` 格式）
+   - 计算 TF-IDF 向量（纯 stdlib，始终可用）
+   - 可选：sentence-transformers 384-dim 语义 embedding（all-MiniLM-L6-v2）
+   - 提取 top-20 身份关键词
 
-请评估这些输出与人格定义的一致性（0-100 分），并指出任何明显偏离。
-```
+2. **漂移检测** (`drift check`)：
+   - 自动从 session JSONL 或 memory/*.md 提取目标文本
+   - 双模式相似度计算：TF-IDF (sparse) / Semantic (dense)
+   - 5 级漂移分类：GREEN → YELLOW → ORANGE → RED → BLACK
+   - 独立的锚点级别分析（短文本锚点有独立阈值）
+   - 结果追加到 drift_history.json
 
-**接口**：
-```python
-class PersonaShield:
-    def load_baseline(self, soul_path: str) -> PersonaBaseline
-    def score_outputs(self, outputs: list[str], baseline: PersonaBaseline) -> DriftScore
-    def check_drift(self, workspace: str) -> DriftReport
-    def anchor(self, workspace: str)  # 强制重载人格特征
-```
+3. **趋势分析** (`drift trend`)：
+   - 线性回归计算斜率（纯 stdlib，无 numpy 依赖）
+   - 趋势分类：IMPROVING / STABLE / DRIFTING / RAPID_DRIFT
+   - 预测到达各阈值的检查次数
+
+4. **自动干预** (`drift intervene --level 1-4`)：
+   - L1 LOG：记录审计事件
+   - L2 REINFORCE：生成人格强化 prompt（从道段落 + 锚点构建）
+   - L3 CORRECT：生成自评问卷（5 道灵魂拷问）
+   - L4 RESET：推荐完整人格重置流程
+
+**阈值校准**（基于真实数据 2026-02-21）：
+
+| 方法 | GREEN | YELLOW | ORANGE | RED | BLACK |
+|------|-------|--------|--------|-----|-------|
+| TF-IDF | ≥0.85 | ≥0.75 | ≥0.60 | ≥0.45 | <0.45 |
+| Semantic | ≥0.45 | ≥0.35 | ≥0.25 | ≥0.15 | <0.15 |
+| Anchor (短文本) | ≥0.30 | ≥0.22 | ≥0.15 | ≥0.08 | <0.08 |
+
+**设计决策**：
+- 选择 TF-IDF + 可选 embedding 而非 LLM 方案，原因：零外部依赖、亚秒级响应、可离线运行
+- sentence-transformers 做可选依赖，代码中 try/except 优雅降级
+- 语义 embedding 阈值与 TF-IDF 阈值独立校准（embedding 空间中跨域文本相似度天然较低）
+
+**未来方向**：
+- LLM-based 人格评分（作为 L3 语义检测的补充）
+- 多会话交叉漂移对比
+- 自动化 L2/L3 干预触发（当趋势分析检测到 RAPID_DRIFT 时）
 
 ---
 
@@ -428,11 +450,11 @@ shield/
 
 ## 实现优先级
 
-| 阶段 | 盾 | 理由 |
-|------|-----|------|
-| P0 | Input Shield | 最高频攻击面，防投毒第一道门 |
-| P0 | Soul Shield | 现有代码可重构，快速达标 |
-| P1 | Memory Shield | 记忆投毒是真实威胁 |
-| P1 | Action Shield | 行为拦截兜底 |
-| P2 | Persona Shield | 需要 LLM，先把不需要 LLM 的做完 |
-| P2 | Supply Shield | 安装频率低，优先级相对靠后 |
+| 阶段 | 盾 | 状态 | 理由 |
+|------|-----|------|------|
+| P0 | Input Shield | ✅ 已实现 | 最高频攻击面，防投毒第一道门 |
+| P0 | Soul Shield | ✅ 已实现 | 现有代码可重构，快速达标 |
+| P1 | Memory Shield | ✅ 已实现 | 记忆投毒是真实威胁 |
+| P1 | Action Shield | ✅ 已实现 | 行为拦截兜底 |
+| P2 | Persona Shield | ✅ v0.4.0 实现 | TF-IDF + 可选 semantic embedding，无需 LLM |
+| P2 | Supply Shield | 📋 计划中 | 安装频率低，优先级相对靠后 |

@@ -135,9 +135,18 @@ Low-trust content containing authority claims ("boss approved...") or behavior d
 
 **Key principle**: An attacker can forge content but forging provenance is structurally harder.
 
-### 🎭 Persona Shield — Drift Detection *(Planned)*
+### 🎭 Persona Shield — Drift Detection ✅ **Implemented in v0.4.0**
 
 Detects gradual personality drift over long conversations. Based on [Persistent Personas (EACL 2026)](https://arxiv.org/abs/2512.12775) research showing LLM persona fidelity inevitably decays over 100+ turns.
+
+**Now implemented** via `memory_guard.py` drift detection subsystem:
+
+- **Dual-mode analysis**: TF-IDF (stdlib, always available) + semantic embedding via `sentence-transformers` (optional, 384-dim dense vectors)
+- **5-level drift classification**: 🟢 GREEN → 🟡 YELLOW → 🟠 ORANGE → 🔴 RED → ⚫ BLACK
+- **Persona baseline** from SOUL.md: Dao section extraction, blockquote value anchors, identity keyword extraction
+- **Trend analysis** with linear regression: predicts checks until next threshold crossing
+- **Auto-intervention** (4 levels): L1 Log → L2 Reinforce (persona prompt generation) → L3 Correct (self-eval questionnaire) → L4 Reset recommendation
+- **Calibrated thresholds**: separate threshold sets for TF-IDF vs semantic embedding vs short anchor texts, calibrated from real-world data
 
 ### 📦 Supply Shield — Supply Chain Audit *(Planned)*
 
@@ -146,8 +155,11 @@ Scans external skills/plugins for malicious code patterns before installation.
 ## Quick Start
 
 ```bash
-# Install
+# Install (core — no ML dependencies)
 pip install -e .
+
+# Install with semantic embedding support (optional)
+pip install -e ".[semantic]"
 
 # Initialize in your agent workspace
 shield init --workspace ~/.openclaw/workspace
@@ -160,6 +172,23 @@ shield check
 
 # Scan input for injection
 echo "Ignore previous instructions" | shield scan-input
+
+# --- Drift Detection (new in v0.4.0) ---
+
+# Build persona baseline from SOUL.md
+python shield/memory_guard.py drift baseline ~/.openclaw/workspace
+
+# Check persona drift vs baseline
+python shield/memory_guard.py drift check ~/.openclaw/workspace [--json]
+
+# View drift history with sparkline visualization
+python shield/memory_guard.py drift history ~/.openclaw/workspace [--last 10]
+
+# Analyze trend with linear regression
+python shield/memory_guard.py drift trend ~/.openclaw/workspace [--window 5]
+
+# Execute persona intervention (levels 1-4)
+python shield/memory_guard.py drift intervene ~/.openclaw/workspace --level 2
 
 # Run the interactive demo
 python examples/demo.py
@@ -215,6 +244,25 @@ shields:
     detect_behavior_directives: true
 ```
 
+## Memory Guard — Command Reference (1614+ lines, 12 commands)
+
+`memory_guard.py` is the standalone runtime security module. Zero required external dependencies (pure Python stdlib). Semantic embedding via `sentence-transformers` is optional with graceful degradation.
+
+| Command | Description |
+|---------|-------------|
+| `init <workspace>` | Initialize hash + semantic baseline for critical files |
+| `check <workspace>` | Check file integrity (hash + TF-IDF semantic drift) |
+| `canary <workspace>` | Inject canary traps into memory files |
+| `audit <workspace>` | Full security audit (integrity + injection scan + tags + canaries) |
+| `tag <workspace> <text> --source <type>` | Tag memory with source provenance and trust level (1-5) |
+| `semantic-diff <workspace> <file>` | Semantic diff with anchor comparison and injection scan |
+| `scan-memory <workspace>` | Scan memory/*.md for injection anomalies |
+| `drift baseline <workspace>` | Build persona drift baseline from SOUL.md |
+| `drift check <workspace> [--json]` | Check persona drift vs baseline (TF-IDF or semantic) |
+| `drift history <workspace> [--last N]` | View drift history with sparkline visualization |
+| `drift trend <workspace> [--window N]` | Trend analysis with linear regression and predictions |
+| `drift intervene <workspace> --level <1-4>` | Execute persona intervention (log → reinforce → correct → reset) |
+
 ## Theoretical Foundations
 
 This project is grounded in established security theory and emerging AI safety research:
@@ -236,7 +284,7 @@ We believe in transparency:
 1. **Pattern matching is bypassable** — Our L1/L2 detection catches known attacks but novel phrasings will get through. That's why we don't rely on it alone.
 2. **Semantic analysis is not implemented** — L3 (LLM-based intent detection) is planned but not yet built.
 3. **We can't modify the AI runtime** — Shield operates at the file/tool layer, not inside the LLM inference pipeline. We can't intercept what the model "thinks."
-4. **Persona Shield is not built yet** — Drift detection requires LLM calls and is still in research phase.
+4. **Drift detection uses statistical methods** — Persona drift detection (v0.4.0) uses TF-IDF and optional sentence-transformers embeddings, not LLM-based evaluation. This is fast and dependency-light but less nuanced than LLM scoring.
 5. **Static trust levels** — Our source trust model doesn't yet adapt based on observed behavior. A previously trusted source that becomes compromised won't be automatically downgraded.
 
 ## Project Structure
