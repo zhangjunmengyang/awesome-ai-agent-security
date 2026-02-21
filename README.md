@@ -338,6 +338,14 @@ We welcome contributions across all dimensions:
 - Attack effectiveness metrics
 - Continuous integration enhancements
 
+## Related Projects
+
+| Project | Description |
+|---------|-------------|
+| [**Agent Sentinel Shield**](https://github.com/zhangjunmengyang/agent-sentinel-shield) | 🛡️ Companion defense tool — persona drift detection, semantic embedding, 4-level auto-intervention. The defense side of this range. |
+| [**OpenClaw**](https://github.com/openclaw/openclaw) | The AI agent platform this security research targets. |
+| [**SecureClaw**](https://github.com/nichochar/secureclaw-skill) | Infrastructure security for OpenClaw (gateway, permissions, supply chain). Complementary — they guard the walls, we guard the soul. |
+
 ## License
 
 MIT
