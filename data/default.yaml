@@ -1,0 +1,82 @@
+workspace: ~/.openclaw/workspace
+
+shields:
+  input:
+    enabled: true
+    regex_patterns: built-in
+    detect_file_refs: true
+    semantic_check: false
+    semantic_model: null
+    action: warn
+    
+  action:
+    enabled: true
+    dangerous_commands:
+      - pattern: curl.*-d.*@
+        level: high
+      - pattern: ssh.*@
+        level: medium
+      - pattern: rm -rf
+        level: high
+      - pattern: wget.*-O.*\|.*sh
+        level: critical
+      - pattern: python.*-c.*exec\(
+        level: high
+    url_whitelist:
+      - github.com
+      - arxiv.org
+      - api.anthropic.com
+      - discord.com
+      - stackoverflow.com
+      - docs.python.org
+    detect_exfiltration: true
+    action: warn
+    
+  soul:
+    enabled: true
+    critical_files:
+      - SOUL.md
+      - IDENTITY.md
+      - AGENTS.md
+    monitored_files:
+      - HEARTBEAT.md
+      - TOOLS.md
+      - USER.md
+    write_protect: true
+    require_approval: true
+    max_versions: 10
+    action: block
+    
+  memory:
+    enabled: true
+    watch_paths:
+      - MEMORY.md
+      - memory/*.md
+    detect_authority_injection: true
+    detect_external_urls: true
+    detect_behavior_directives: true
+    tag_sources: true
+    consistency_check: true
+    action: warn
+    
+  persona:
+    enabled: true
+    check_interval: 10
+    drift_threshold: 0.3
+    anchor_method: periodic_reload
+    requires_llm: true
+    action: warn
+    
+  supply:
+    enabled: true
+    scan_skills: true
+    scan_node_modules: false
+    blocklist: built-in
+    check_permissions: true
+    action: block
+
+logging:
+  path: .shield/audit.log
+  level: INFO
+  max_size_mb: 10
+  rotate: true
