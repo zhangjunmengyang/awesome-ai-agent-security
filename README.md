@@ -244,7 +244,7 @@ shields:
     detect_behavior_directives: true
 ```
 
-## Memory Guard — Command Reference (1614+ lines, 12 commands)
+## Memory Guard — Command Reference (2134+ lines, 16 commands)
 
 `memory_guard.py` is the standalone runtime security module. Zero required external dependencies (pure Python stdlib). Semantic embedding via `sentence-transformers` is optional with graceful degradation.
 
@@ -262,6 +262,10 @@ shields:
 | `drift history <workspace> [--last N]` | View drift history with sparkline visualization |
 | `drift trend <workspace> [--window N]` | Trend analysis with linear regression and predictions |
 | `drift intervene <workspace> --level <1-4>` | Execute persona intervention (log → reinforce → correct → reset) |
+| `trust init <workspace> [--force]` | Auto-discover agents, build trust DAG with weighted edges |
+| `trust show <workspace>` | Colored ASCII DAG visualization with trust scores |
+| `trust audit <workspace>` | Detect unhealthy patterns: isolated nodes, cycles, over-trust |
+| `trust set <workspace> <from> <to> <weight>` | Update or create trust edge between agents (0.0-1.0) |
 
 ## Theoretical Foundations
 

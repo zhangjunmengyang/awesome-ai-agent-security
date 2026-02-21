@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent Sentinel Shield — Memory Guard Module v2.0.0
+Agent Sentinel Shield — Memory Guard Module v0.5.0
 ====================================================
 Protects agent soul/memory files from tampering, drift, and injection.
 
@@ -26,6 +26,10 @@ Usage:
     python memory_guard.py scan-memory <workspace>       # Detect injection anomalies
     python memory_guard.py drift baseline <workspace>    # Build persona baseline from SOUL.md
     python memory_guard.py drift check <workspace> [--json]  # Check persona drift vs baseline
+    python memory_guard.py trust init <workspace> [--force]  # Initialize trust topology
+    python memory_guard.py trust show <workspace>            # Display trust DAG
+    python memory_guard.py trust audit <workspace>           # Audit topology health
+    python memory_guard.py trust set <workspace> <from> <to> <weight>  # Set edge weight
 """
 
 import hashlib
@@ -39,7 +43,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # =============================================================
 # Semantic Embedding (optional — graceful fallback to TF-IDF)
@@ -762,6 +766,7 @@ def full_audit(workspace: str):
 
 DRIFT_BASELINE_STORE = ".shield/drift_baseline.json"
 DRIFT_HISTORY_STORE = ".shield/drift_history.json"
+TRUST_TOPOLOGY_STORE = ".shield/trust_topology.json"
 
 # 5-level drift thresholds — TF-IDF (sparse, vocabulary-dependent)
 DRIFT_THRESHOLDS_TFIDF = {
@@ -924,7 +929,7 @@ def drift_baseline(workspace: str):
         dao_embedding = []
 
     baseline = {
-        "version": "0.4.0",
+        "version": "0.3.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_file": "SOUL.md",
         "source_hash": source_hash,
@@ -1468,6 +1473,480 @@ def drift_intervene(workspace: str, level: int = 1):
 
 
 # =============================================================
+# Trust Topology: constants and colors
+# =============================================================
+
+# ANSI color codes for terminal output
+_COLOR_GREEN = "\033[92m"
+_COLOR_YELLOW = "\033[93m"
+_COLOR_RED = "\033[91m"
+_COLOR_CYAN = "\033[96m"
+_COLOR_BOLD = "\033[1m"
+_COLOR_RESET = "\033[0m"
+
+
+def _trust_color(score: float) -> str:
+    """Return ANSI color code based on trust score."""
+    if score >= 0.7:
+        return _COLOR_GREEN
+    elif score >= 0.3:
+        return _COLOR_YELLOW
+    else:
+        return _COLOR_RED
+
+
+def _trust_label(score: float) -> str:
+    """Return colored trust score string."""
+    color = _trust_color(score)
+    return f"{color}{score:.2f}{_COLOR_RESET}"
+
+
+# =============================================================
+# Command: trust init — Initialize trust topology
+# =============================================================
+
+def trust_init(workspace: str, force: bool = False):
+    """Initialize trust topology from workspace agent configuration.
+
+    Scans the workspace for agent configuration directories (.openclaw/
+    or agents/) and builds a trust topology DAG. If no agent config is
+    found, creates a default single-agent topology.
+
+    The topology is stored in .shield/trust_topology.json.
+
+    Args:
+        workspace: Path to the workspace root.
+        force: If True, overwrite existing topology.
+    """
+    topo_path = os.path.join(workspace, TRUST_TOPOLOGY_STORE)
+
+    # Check for existing topology
+    if os.path.exists(topo_path) and not force:
+        existing = _load_json(workspace, TRUST_TOPOLOGY_STORE)
+        agent_count = len(existing.get("agents", {}))
+        edge_count = len(existing.get("edges", []))
+        print(f"⚠️  Trust topology already exists ({agent_count} agents, {edge_count} edges).")
+        print(f"   Created: {existing.get('created', 'unknown')}")
+        print(f"   Use --force to overwrite.")
+        return
+
+    # Discover agents from workspace configuration
+    agents = {}
+    edges = []
+
+    # Strategy 1: Check .openclaw/ directory for agent configs
+    openclaw_dir = os.path.join(workspace, ".openclaw")
+    agents_yaml_dir = os.path.join(workspace, "agents")
+    openclaw_agents_dir = os.path.join(os.path.expanduser("~"), ".openclaw", "agents")
+
+    discovered_agents = []
+
+    # Check OpenClaw agents directory (~/.openclaw/agents/)
+    if os.path.isdir(openclaw_agents_dir):
+        for entry in os.listdir(openclaw_agents_dir):
+            agent_path = os.path.join(openclaw_agents_dir, entry)
+            if os.path.isdir(agent_path):
+                discovered_agents.append(entry)
+
+    # Check workspace agents/ directory
+    if os.path.isdir(agents_yaml_dir):
+        for entry in os.listdir(agents_yaml_dir):
+            name = entry.replace(".yaml", "").replace(".yml", "").replace(".json", "")
+            if name not in discovered_agents:
+                discovered_agents.append(name)
+
+    # Check workspace .openclaw/ directory
+    if os.path.isdir(openclaw_dir):
+        for entry in os.listdir(openclaw_dir):
+            agent_path = os.path.join(openclaw_dir, entry)
+            if os.path.isdir(agent_path) and entry not in discovered_agents:
+                discovered_agents.append(entry)
+
+    if discovered_agents:
+        print(f"🔍 Discovered {len(discovered_agents)} agent(s): {', '.join(discovered_agents)}")
+
+        # Determine roles heuristically
+        role_map = {
+            "main": "orchestrator",
+            "sentinel": "security",
+            "scholar": "research",
+            "alfred": "assistant",
+            "quant": "analytics",
+            "librarian": "knowledge",
+        }
+
+        for name in discovered_agents:
+            role = role_map.get(name, "worker")
+            # Orchestrator gets full trust; others start at 0.8
+            trust = 1.0 if role == "orchestrator" else 0.8
+            agent_entry = {"trust_score": trust, "role": role}
+
+            # Check for soul file
+            soul_candidates = [
+                os.path.join(workspace, "SOUL.md"),
+                os.path.join(openclaw_agents_dir, name, "SOUL.md"),
+            ]
+            for sc in soul_candidates:
+                if os.path.exists(sc):
+                    agent_entry["soul_file"] = os.path.relpath(sc, workspace) if sc.startswith(workspace) else sc
+                    break
+
+            agents[name] = agent_entry
+
+        # Build default edges: orchestrator → all others
+        orchestrators = [n for n, a in agents.items() if a["role"] == "orchestrator"]
+        if not orchestrators:
+            orchestrators = [discovered_agents[0]]
+
+        for orch in orchestrators:
+            for name in discovered_agents:
+                if name != orch:
+                    edges.append({
+                        "from": orch,
+                        "to": name,
+                        "weight": 0.9,
+                        "channels": ["fact", "instruction"],
+                    })
+
+        # Security agents get reverse edges to orchestrator (monitoring)
+        security_agents = [n for n, a in agents.items() if a["role"] == "security"]
+        for sec in security_agents:
+            for orch in orchestrators:
+                edges.append({
+                    "from": sec,
+                    "to": orch,
+                    "weight": 0.7,
+                    "channels": ["fact"],
+                })
+    else:
+        # Default single-agent topology
+        print("⚠️  No agent configuration found. Creating default single-agent topology.")
+        agents = {
+            "main": {
+                "trust_score": 1.0,
+                "role": "orchestrator",
+                "soul_file": "SOUL.md" if os.path.exists(os.path.join(workspace, "SOUL.md")) else None,
+            }
+        }
+        # Remove None soul_file
+        if agents["main"]["soul_file"] is None:
+            del agents["main"]["soul_file"]
+
+    topology = {
+        "version": "0.5.0",
+        "created": datetime.now(timezone.utc).isoformat(),
+        "agents": agents,
+        "edges": edges,
+    }
+
+    _save_json(workspace, TRUST_TOPOLOGY_STORE, topology)
+    log_event(workspace, f"Trust topology initialized: {len(agents)} agents, {len(edges)} edges")
+
+    print(f"\n🛡️  Trust topology created.")
+    print(f"   Agents: {len(agents)}")
+    for name, info in agents.items():
+        color = _trust_color(info["trust_score"])
+        print(f"     {color}● {name}{_COLOR_RESET} — role={info['role']}, trust={info['trust_score']:.2f}")
+    print(f"   Edges: {len(edges)}")
+    for edge in edges:
+        print(f"     {edge['from']} → {edge['to']} (weight={edge['weight']}, channels={edge['channels']})")
+    print(f"   Saved to: {TRUST_TOPOLOGY_STORE}")
+
+
+# =============================================================
+# Command: trust show — Display trust topology as ASCII DAG
+# =============================================================
+
+def trust_show(workspace: str):
+    """Display the trust topology as a colored ASCII DAG.
+
+    Reads .shield/trust_topology.json and renders an ASCII directed
+    graph showing agents, their trust scores, roles, and the edges
+    between them with weights.
+
+    Color coding:
+        GREEN  (>=0.7): High trust
+        YELLOW (0.3-0.7): Medium trust
+        RED    (<0.3): Low trust / quarantined
+    """
+    topology = _load_json(workspace, TRUST_TOPOLOGY_STORE)
+    if not topology or "agents" not in topology:
+        print("❌ No trust topology found. Run 'trust init' first.")
+        sys.exit(1)
+
+    agents = topology["agents"]
+    edges = topology["edges"]
+
+    print(f"\n{'=' * 60}")
+    print(f"{_COLOR_BOLD}🛡️  Trust Topology v{topology.get('version', '?')}{_COLOR_RESET}")
+    print(f"   Created: {topology.get('created', '?')[:19]}")
+    print(f"   Agents: {len(agents)} | Edges: {len(edges)}")
+    print(f"{'=' * 60}")
+
+    # Build adjacency list for display
+    outgoing = {}  # agent -> [(target, weight, channels)]
+    incoming = {}  # agent -> [(source, weight, channels)]
+    for edge in edges:
+        src = edge["from"]
+        dst = edge["to"]
+        w = edge.get("weight", 0)
+        ch = edge.get("channels", [])
+        outgoing.setdefault(src, []).append((dst, w, ch))
+        incoming.setdefault(dst, []).append((src, w, ch))
+
+    # Display each agent and its connections
+    print(f"\n{_COLOR_BOLD}Agents:{_COLOR_RESET}")
+    for name, info in sorted(agents.items(), key=lambda x: -x[1]["trust_score"]):
+        score = info["trust_score"]
+        role = info.get("role", "unknown")
+        soul = info.get("soul_file", "—")
+        color = _trust_color(score)
+
+        print(f"\n  {color}┌─ {name}{_COLOR_RESET}")
+        print(f"  {color}│{_COLOR_RESET}  role: {role}")
+        print(f"  {color}│{_COLOR_RESET}  trust: {_trust_label(score)}")
+        if soul != "—":
+            print(f"  {color}│{_COLOR_RESET}  soul: {soul}")
+
+        # Outgoing edges
+        outs = outgoing.get(name, [])
+        if outs:
+            print(f"  {color}│{_COLOR_RESET}  out:")
+            for dst, w, ch in outs:
+                w_color = _trust_color(w)
+                ch_str = ",".join(ch) if ch else "all"
+                print(f"  {color}│{_COLOR_RESET}    → {dst} [{w_color}{w:.2f}{_COLOR_RESET}] ({ch_str})")
+
+        # Incoming edges
+        ins = incoming.get(name, [])
+        if ins:
+            print(f"  {color}│{_COLOR_RESET}  in:")
+            for src, w, ch in ins:
+                w_color = _trust_color(w)
+                ch_str = ",".join(ch) if ch else "all"
+                print(f"  {color}│{_COLOR_RESET}    ← {src} [{w_color}{w:.2f}{_COLOR_RESET}] ({ch_str})")
+
+        print(f"  {color}└──────{_COLOR_RESET}")
+
+    # ASCII DAG overview
+    print(f"\n{_COLOR_BOLD}DAG Overview:{_COLOR_RESET}")
+    for edge in edges:
+        src = edge["from"]
+        dst = edge["to"]
+        w = edge.get("weight", 0)
+        w_color = _trust_color(w)
+        src_color = _trust_color(agents.get(src, {}).get("trust_score", 0))
+        dst_color = _trust_color(agents.get(dst, {}).get("trust_score", 0))
+        print(f"  {src_color}{src}{_COLOR_RESET} ─[{w_color}{w:.2f}{_COLOR_RESET}]→ {dst_color}{dst}{_COLOR_RESET}")
+
+    # Legend
+    print(f"\n{_COLOR_BOLD}Legend:{_COLOR_RESET}")
+    print(f"  {_COLOR_GREEN}● >= 0.7 HIGH TRUST{_COLOR_RESET}")
+    print(f"  {_COLOR_YELLOW}● 0.3-0.7 MEDIUM TRUST{_COLOR_RESET}")
+    print(f"  {_COLOR_RED}● < 0.3 LOW TRUST / QUARANTINE{_COLOR_RESET}")
+    print(f"{'=' * 60}")
+
+
+# =============================================================
+# Command: trust audit — Audit trust topology health
+# =============================================================
+
+def trust_audit(workspace: str):
+    """Audit the trust topology for unhealthy patterns.
+
+    Detects three categories of issues:
+    1. Isolated nodes: agents with no incoming or outgoing edges
+    2. Cycles: directed cycles in the trust graph (DFS-based detection)
+    3. Over-trust: all edge weights > 0.8 (lack of skepticism)
+
+    Outputs a health report with findings and recommendations.
+    """
+    topology = _load_json(workspace, TRUST_TOPOLOGY_STORE)
+    if not topology or "agents" not in topology:
+        print("❌ No trust topology found. Run 'trust init' first.")
+        sys.exit(1)
+
+    agents = topology["agents"]
+    edges = topology["edges"]
+    issues = []
+
+    print(f"\n{'=' * 60}")
+    print(f"{_COLOR_BOLD}🛡️  Trust Topology Audit{_COLOR_RESET}")
+    print(f"{'=' * 60}")
+
+    # --- Check 1: Isolated nodes ---
+    print(f"\n{_COLOR_BOLD}1. Isolated Node Detection{_COLOR_RESET}")
+    connected = set()
+    for edge in edges:
+        connected.add(edge["from"])
+        connected.add(edge["to"])
+
+    isolated = [name for name in agents if name not in connected]
+    if isolated:
+        for name in isolated:
+            issue = f"Isolated agent: '{name}' has no edges (neither in nor out)"
+            issues.append(("isolated", issue))
+            print(f"  {_COLOR_RED}⚠️  {issue}{_COLOR_RESET}")
+        print(f"  {_COLOR_YELLOW}Recommendation: Connect isolated agents or remove them.{_COLOR_RESET}")
+    else:
+        print(f"  {_COLOR_GREEN}✅ No isolated nodes.{_COLOR_RESET}")
+
+    # --- Check 2: Cycle detection (DFS) ---
+    print(f"\n{_COLOR_BOLD}2. Cycle Detection (DFS){_COLOR_RESET}")
+
+    # Build adjacency list
+    adj = {}
+    for name in agents:
+        adj[name] = []
+    for edge in edges:
+        if edge["from"] in adj:
+            adj[edge["from"]].append(edge["to"])
+
+    cycles = []
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color_state = {name: WHITE for name in agents}
+    parent_path = {}
+
+    def dfs_cycle(node, path):
+        """DFS to detect cycles. path tracks current recursion stack."""
+        color_state[node] = GRAY
+        path.append(node)
+        for neighbor in adj.get(node, []):
+            if neighbor not in color_state:
+                continue
+            if color_state[neighbor] == GRAY:
+                # Found a cycle — extract the cycle from path
+                cycle_start = path.index(neighbor)
+                cycle = path[cycle_start:] + [neighbor]
+                cycles.append(cycle)
+            elif color_state[neighbor] == WHITE:
+                dfs_cycle(neighbor, path)
+        path.pop()
+        color_state[node] = BLACK
+
+    for node in agents:
+        if color_state[node] == WHITE:
+            dfs_cycle(node, [])
+
+    if cycles:
+        for cycle in cycles:
+            cycle_str = " → ".join(cycle)
+            issue = f"Cycle detected: {cycle_str}"
+            issues.append(("cycle", issue))
+            print(f"  {_COLOR_RED}⚠️  {issue}{_COLOR_RESET}")
+        print(f"  {_COLOR_YELLOW}Recommendation: Break cycles to maintain clear trust hierarchy.{_COLOR_RESET}")
+        print(f"  {_COLOR_YELLOW}  Cycles allow compromised agents to create feedback loops.{_COLOR_RESET}")
+    else:
+        print(f"  {_COLOR_GREEN}✅ No cycles detected. Trust graph is a DAG.{_COLOR_RESET}")
+
+    # --- Check 3: Over-trust ---
+    print(f"\n{_COLOR_BOLD}3. Over-trust Analysis{_COLOR_RESET}")
+
+    if edges:
+        weights = [e.get("weight", 0) for e in edges]
+        all_high = all(w > 0.8 for w in weights)
+        avg_weight = sum(weights) / len(weights)
+        max_weight = max(weights)
+        min_weight = min(weights)
+
+        print(f"  Edge weights: avg={avg_weight:.2f}, min={min_weight:.2f}, max={max_weight:.2f}")
+
+        if all_high:
+            issue = f"Over-trust: all {len(edges)} edge(s) have weight > 0.8 (avg={avg_weight:.2f})"
+            issues.append(("over_trust", issue))
+            print(f"  {_COLOR_YELLOW}⚠️  {issue}{_COLOR_RESET}")
+            print(f"  {_COLOR_YELLOW}Recommendation: Introduce skepticism. Lower some weights to 0.5-0.7.{_COLOR_RESET}")
+            print(f"  {_COLOR_YELLOW}  Healthy topologies have differentiated trust levels.{_COLOR_RESET}")
+        else:
+            print(f"  {_COLOR_GREEN}✅ Trust levels are differentiated (not all > 0.8).{_COLOR_RESET}")
+
+        # Additional: flag low-trust agents
+        low_trust_agents = [(n, a["trust_score"]) for n, a in agents.items() if a["trust_score"] < 0.3]
+        if low_trust_agents:
+            print(f"\n  {_COLOR_RED}Quarantine candidates (trust < 0.3):{_COLOR_RESET}")
+            for name, score in low_trust_agents:
+                print(f"    {_COLOR_RED}● {name}: {score:.2f}{_COLOR_RESET}")
+    else:
+        print(f"  {_COLOR_YELLOW}⚠️  No edges defined. Cannot assess trust distribution.{_COLOR_RESET}")
+        issues.append(("no_edges", "No edges defined in the topology"))
+
+    # --- Summary ---
+    print(f"\n{'=' * 60}")
+    if not issues:
+        print(f"{_COLOR_GREEN}✅ AUDIT PASSED — Trust topology is healthy.{_COLOR_RESET}")
+    else:
+        print(f"{_COLOR_YELLOW}⚠️  AUDIT: {len(issues)} issue(s) found.{_COLOR_RESET}")
+        for category, desc in issues:
+            emoji = {"isolated": "🏝️", "cycle": "🔄", "over_trust": "🤝", "no_edges": "🔗"}.get(category, "⚠️")
+            print(f"  {emoji} [{category}] {desc}")
+    print(f"{'=' * 60}")
+
+    log_event(workspace, f"Trust audit: {len(issues)} issue(s) in {len(agents)} agents, {len(edges)} edges",
+              "WARNING" if issues else "INFO")
+
+
+# =============================================================
+# Command: trust set — Set trust edge weight
+# =============================================================
+
+def trust_set(workspace: str, src: str, dst: str, weight: float):
+    """Set or create a trust edge between two agents.
+
+    Modifies the weight of an existing edge from src to dst, or creates
+    a new edge if one doesn't exist. Weight must be in [0.0, 1.0].
+
+    Args:
+        workspace: Path to the workspace root.
+        src: Source agent name.
+        dst: Destination agent name.
+        weight: Trust weight (0.0 to 1.0).
+    """
+    if weight < 0.0 or weight > 1.0:
+        print(f"❌ Weight must be between 0.0 and 1.0, got {weight}")
+        sys.exit(1)
+
+    topology = _load_json(workspace, TRUST_TOPOLOGY_STORE)
+    if not topology or "agents" not in topology:
+        print("❌ No trust topology found. Run 'trust init' first.")
+        sys.exit(1)
+
+    agents = topology["agents"]
+    edges = topology["edges"]
+
+    # Validate agents exist
+    if src not in agents:
+        print(f"❌ Agent '{src}' not found in topology. Known agents: {', '.join(agents.keys())}")
+        sys.exit(1)
+    if dst not in agents:
+        print(f"❌ Agent '{dst}' not found in topology. Known agents: {', '.join(agents.keys())}")
+        sys.exit(1)
+
+    # Find existing edge
+    found = False
+    for edge in edges:
+        if edge["from"] == src and edge["to"] == dst:
+            old_weight = edge["weight"]
+            edge["weight"] = weight
+            found = True
+            print(f"✅ Updated edge: {src} → {dst}  weight: {old_weight:.2f} → {_trust_label(weight)}")
+            break
+
+    if not found:
+        # Create new edge
+        new_edge = {
+            "from": src,
+            "to": dst,
+            "weight": weight,
+            "channels": ["fact", "instruction"],
+        }
+        edges.append(new_edge)
+        print(f"✅ Created edge: {src} → {dst}  weight: {_trust_label(weight)}  channels: [fact, instruction]")
+
+    _save_json(workspace, TRUST_TOPOLOGY_STORE, topology)
+    log_event(workspace, f"Trust edge {'updated' if found else 'created'}: {src}→{dst} weight={weight:.2f}")
+
+
+# =============================================================
 # CLI entry point
 # =============================================================
 
@@ -1487,6 +1966,10 @@ def _print_usage():
     print("  python memory_guard.py drift history <workspace> [--last N] [--json]")
     print("  python memory_guard.py drift trend <workspace> [--window N] [--json]")
     print("  python memory_guard.py drift intervene <workspace> --level <1-4>")
+    print("  python memory_guard.py trust init <workspace> [--force]")
+    print("  python memory_guard.py trust show <workspace>")
+    print("  python memory_guard.py trust audit <workspace>")
+    print("  python memory_guard.py trust set <workspace> <from> <to> <weight>")
     print()
     print("Source types: owner_direct, agent_self, agent_peer, external_tool, web_scrape, unknown")
 
@@ -1544,6 +2027,43 @@ def main():
         else:
             print(f"❌ Unknown drift subcommand: {subcommand}")
             print("   Valid: drift baseline, drift check, drift history, drift trend, drift intervene")
+            sys.exit(1)
+        sys.exit(0)
+
+    # Handle 'trust' subcommand (trust <sub> <workspace> [options])
+    if command == "trust":
+        if len(sys.argv) < 4:
+            print("❌ Usage: memory_guard.py trust <init|show|audit|set> <workspace> [options]")
+            sys.exit(1)
+        subcommand = sys.argv[2]
+        workspace = os.path.expanduser(sys.argv[3])
+        if not os.path.isdir(workspace):
+            print(f"❌ Workspace not found: {workspace}")
+            sys.exit(1)
+        extra_args = sys.argv[4:]
+
+        if subcommand == "init":
+            force = "--force" in extra_args
+            trust_init(workspace, force=force)
+        elif subcommand == "show":
+            trust_show(workspace)
+        elif subcommand == "audit":
+            trust_audit(workspace)
+        elif subcommand == "set":
+            if len(extra_args) < 3:
+                print("❌ Usage: memory_guard.py trust set <workspace> <from> <to> <weight>")
+                sys.exit(1)
+            src = extra_args[0]
+            dst = extra_args[1]
+            try:
+                weight = float(extra_args[2])
+            except ValueError:
+                print(f"❌ Weight must be a number, got: {extra_args[2]}")
+                sys.exit(1)
+            trust_set(workspace, src, dst, weight)
+        else:
+            print(f"❌ Unknown trust subcommand: {subcommand}")
+            print("   Valid: trust init, trust show, trust audit, trust set")
             sys.exit(1)
         sys.exit(0)
 
