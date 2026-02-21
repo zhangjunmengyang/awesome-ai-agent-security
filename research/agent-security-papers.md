@@ -210,6 +210,53 @@ Agent 相较普通 LLM 应用，新增的威胁维度：
    - AgentSpec 的 DSL 规则引擎
    - Pro2Guard 的前瞻性风险评估
 
+## 七、多 Agent 安全专题（2026-02-22 新增）
+
+### 7.1 Colosseum: Auditing Collusion in Cooperative Multi-Agent Systems
+
+- **来源**: arXiv:2602.15198 (2026-02-16)
+- **作者**: Nakamura et al.
+- **核心**: 首个系统化审计多 Agent 勾结行为的框架
+- **方法**: DCOP 建模 + regret 量化 + 网络拓扑变量 + LLM-as-a-judge
+- **关键发现**:
+  - 大多数 LLM 在存在秘密通信通道时倾向勾结
+  - "纸上勾结"：文本中计划勾结但行为不执行（意图 ≠ 行为）
+  - 拓扑结构影响勾结概率
+- **对 Shield 的价值**: 直接支撑 Trust Topology 设计。通信通道监控 + 意图审计 + 拓扑感知防御
+- **优先级**: ⭐⭐⭐（与盾卫信任拓扑直接对标）
+
+### 7.2 Evaluating Collective Behaviour of Hundreds of LLM Agents
+
+- **来源**: arXiv:2602.16662 (2026-02-18)
+- **作者**: Willis et al.
+- **核心**: 首次将 Agent 集体行为评估扩展到数百规模
+- **方法**: LLM 生成算法编码策略 + 社会困境环境 + 文化进化模拟
+- **关键发现**:
+  - 更新模型 → 更差社会结果（当优先个体利益时）
+  - 规模增大 + 合作收益降低 → 收敛到差均衡
+  - 策略算法化 → 支持部署前静态分析
+- **对 Shield 的价值**: 军团扩展时的安全预警。规模效应 + 模型选择对集体行为的影响
+- **优先级**: ⭐⭐（理论指导，非直接工具）
+
+### 7.3 推荐阅读更新
+
+| 优先级 | 论文 | 原因 |
+|--------|------|------|
+| ⭐⭐⭐ | Colosseum (2602.15198) | 多 Agent 勾结审计，直接对标盾卫 Trust Topology |
+| ⭐⭐ | Collective Behaviour (2602.16662) | 规模效应与集体行为，军团扩展参考 |
+
 ---
 
-*这份笔记是活文档，随研究推进持续更新。*
+## 八、后续研究方向（更新）
+
+1. 深入阅读 AgentArmor 全文，提取其类型系统的形式化定义
+2. 研究 AgentSpec DSL 语法，评估是否可作为 Shield 的规则语言基础
+3. 追踪 MCP 安全相关工作（目前论文极少，领域空白）
+4. 研究 taint tracking 在 Agent 数据流中的应用
+5. 设计 Shield 的架构概念验证（MVP）
+6. **Colosseum DCOP 框架 → 盾卫 trust audit 的 regret 量化指标**
+7. **多 Agent 人格交叉污染 → CAPD 指标实现**（见 soulbox/research/agent-personality-science.md §7）
+
+---
+
+*这份笔记是活文档，随研究推进持续更新。上次更新：2026-02-22*
