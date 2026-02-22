@@ -338,6 +338,22 @@ We welcome contributions across all dimensions:
 - Attack effectiveness metrics
 - Continuous integration enhancements
 
+## Where We Fit — The AI Agent Security Landscape
+
+AI agent security is not one problem — it's three layers, each requiring different expertise:
+
+| Layer | What It Protects | Who Does It | Example |
+|-------|-----------------|-------------|---------|
+| **Code Security** | Source code vulnerabilities (XSS, SQLi, buffer overflows) | Anthropic [Claude Code Security](https://www.anthropic.com) (2/2026), Snyk, Semgrep | Find a decades-old CVE in an open-source dependency |
+| **Infrastructure Security** | Gateway, permissions, credentials, supply chain | [SecureClaw](https://github.com/nichochar/secureclaw-skill) (51 audit rules + 15 behavioral rules) | Block unauthorized MCP server connections |
+| **Cognitive Security** | Agent identity, memory integrity, persona drift, trust topology | **This project** + [Agent Sentinel Shield](https://github.com/zhangjunmengyang/agent-sentinel-shield) | Detect narrative-disguised prompt injection poisoning agent memory |
+
+Claude Code Security (powered by Opus 4.6) is impressive — it found vulnerabilities that went **undetected for decades** in open-source codebases. But it operates at the code layer: scanning source files for traditional software flaws.
+
+**We operate at the cognitive layer** — where attacks exploit the agent's *understanding*, not its code. A narrative-disguised prompt injection (like [Moltbook 2026](research/threat-landscape.md)) doesn't trigger any code vulnerability scanner because the payload *is* natural language. Detecting it requires semantic analysis of the agent's belief system, not static analysis of its source code.
+
+These layers are complementary. A secure agent needs all three.
+
 ## Related Projects
 
 | Project | Description |
@@ -345,6 +361,7 @@ We welcome contributions across all dimensions:
 | [**Agent Sentinel Shield**](https://github.com/zhangjunmengyang/agent-sentinel-shield) | 🛡️ Companion defense tool — persona drift detection, semantic embedding, 4-level auto-intervention. The defense side of this range. |
 | [**OpenClaw**](https://github.com/openclaw/openclaw) | The AI agent platform this security research targets. |
 | [**SecureClaw**](https://github.com/nichochar/secureclaw-skill) | Infrastructure security for OpenClaw (gateway, permissions, supply chain). Complementary — they guard the walls, we guard the soul. |
+| [**Claude Code Security**](https://www.anthropic.com) | Anthropic's Opus 4.6-powered autonomous code vulnerability scanner (2/2026). Complementary — they guard the code, we guard the cognition. |
 
 ## License
 
