@@ -1,8 +1,11 @@
-# Shield Architecture — 六盾防御体系
+# Shield Architecture — Six-Layer Defense
 
 > 每一面盾对应一根矛。没有矛盾对应的盾 = 自嗨。
 
-## 总览
+**Implementation status**: 4 of 6 shields implemented. Persona Shield and Supply Shield are design-only.
+
+
+## Overview
 
 ```
                     外部世界
