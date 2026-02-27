@@ -45,7 +45,7 @@ Reference implementations of defense-in-depth for AI agents. For architecture de
 
 | Shield | Status | Method | What It Does |
 |--------|--------|--------|-------------|
-| **Input Shield** | Implemented | Regex + keyword co-occurrence | Scans incoming text against ~70 injection patterns (bilingual). L2 detects internal file references + instruction markers co-occurring. |
+| **Input Shield** | Implemented | L0 sanitizer + Regex + keyword co-occurrence | **L0**: Unicode steganography sanitizer (zero-width chars, Cf category, TAG plane) blocks invisible prompt injection. L1: ~70 injection patterns (bilingual). L2: internal file references + instruction markers co-occurrence. |
 | **Action Shield** | Implemented | URL whitelist + pattern matching | Domain whitelist, command safety scoring, frequency rate-limiting, file access control, session log audit. |
 | **Soul Shield** | Implemented | SHA-256 hash + chmod + versioning | File integrity baseline, OS-level write protection, version history, change request workflow. |
 | **Memory Shield** | Implemented | Regex + canary tokens + source tagging | Poison pattern detection (false authority, behavior directives, privilege escalation), canary token injection/leak detection, source trust levels. |
