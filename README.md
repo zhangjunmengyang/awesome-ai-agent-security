@@ -128,7 +128,6 @@ shield check
 | Layer | Protects | Examples |
 |-------|----------|---------|
 | Code Security | Source code vulnerabilities | Claude Code Security, Snyk, Semgrep |
-| Infrastructure Security | Gateway, permissions, credentials | [SecureClaw](https://github.com/nichochar/secureclaw-skill) |
 | Cognitive Security | Agent identity, memory, persona | **This project** |
 
 These layers are complementary. A code scanner won't catch narrative-disguised prompt injection (the payload is natural language). A gateway audit won't catch memory poisoning (the data looks normal). This project explores the cognitive layer with pattern-based methods — real semantic defense would need LLM-in-the-loop, which isn't built yet.
@@ -143,7 +142,6 @@ These layers are complementary. A code scanner won't catch narrative-disguised p
 ## Related Projects
 
 - [OpenClaw](https://github.com/openclaw/openclaw) — AI agent platform this research targets
-- [SecureClaw](https://github.com/nichochar/secureclaw-skill) — Infrastructure security for OpenClaw
 
 ## Contributing
 
