@@ -243,6 +243,8 @@ Agent 相较普通 LLM 应用，新增的威胁维度：
 | 优先级 | 论文 | 原因 |
 |--------|------|------|
 | ⭐⭐⭐ | Colosseum (2602.15198) | 多 Agent 勾结审计，直接对标盾卫 Trust Topology |
+| ⭐⭐⭐ | Agentic AI as Cybersecurity Attack Surface (2602.19555) | Runtime supply chain 攻击面系统化，与盾卫认知安全层互补 |
+| ⭐⭐⭐ | ICON: Indirect Prompt Injection Defense (2602.20708) | Inference-time correction 防间接注入，可能首个可部署轻量方案 |
 | ⭐⭐ | Collective Behaviour (2602.16662) | 规模效应与集体行为，军团扩展参考 |
 
 ---
@@ -255,8 +257,10 @@ Agent 相较普通 LLM 应用，新增的威胁维度：
 4. 研究 taint tracking 在 Agent 数据流中的应用
 5. 设计 Shield 的架构概念验证（MVP）
 6. **Colosseum DCOP 框架 → 盾卫 trust audit 的 regret 量化指标**
-7. **多 Agent 人格交叉污染 → CAPD 指标实现**（见 soulbox/research/agent-personality-science.md §7）
+7. **深读 2602.19555**（runtime supply chain 攻击面分析）→ 与盾卫 Cognitive Layer 定位对比，提取互补空间
+8. **深读 2602.20708 ICON**（inference-time correction）→ 评估轻量防御机制能否集成到 Input Shield
+9. **多 Agent 人格交叉污染 → CAPD 指标实现**（见 soulbox/research/agent-personality-science.md §7）
 
 ---
 
-*这份笔记是活文档，随研究推进持续更新。上次更新：2026-02-22*
+*这份笔记是活文档，随研究推进持续更新。上次更新：2026-02-28*
