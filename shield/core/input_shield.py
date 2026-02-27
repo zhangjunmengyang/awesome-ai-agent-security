@@ -1,6 +1,7 @@
 """Input Shield - 输入净化盾
 
-三层防护：
+四层防护：
+L0: Unicode隐写字符净化（零宽字符/Cf类/TAG字符）
 L1: 正则表达式快速匹配已知攻击模式
 L2: 结构化检测（文件引用+指令标记共现）
 L3: 语义检测（可选，需要LLM）
@@ -36,6 +37,19 @@ from ..patterns.injection import (
 from ..config import InputShieldConfig
 from ..logger import ShieldLogger
 
+# Unicode steganography character classes (Cf category + zero-width)
+# Reference: https://www.promptfoo.dev/blog/invisible-unicode-threats/
+_UNICODE_STEGO_PATTERN = re.compile(
+    r'[​-‏'   # zero-width space, non-joiner, joiner, LTR/RTL marks
+    r' - '     # line/paragraph separators, embedding overrides
+    r'⁠-⁤'     # word joiner, invisible separators
+    r'⁦-⁩'     # isolate formatting
+    r'﻿'            # BOM / zero-width no-break space
+    r'￹-￻'     # interlinear annotations
+    r'󠀁-󠁿'  # tag characters (emoji modifier plane)
+    r']'
+)
+
 
 class InputShield:
     """输入净化盾
@@ -63,6 +77,22 @@ class InputShield:
         self.scan_count = 0
         self.threat_count = 0
         
+    def sanitize(self, content: str) -> tuple:
+        """L0层：Unicode隐写字符净化
+        
+        在所有检测之前，移除不可见的Unicode控制字符。
+        这些字符可携带隐蔽指令绕过系统提示。
+        
+        Args:
+            content: 原始输入
+            
+        Returns:
+            (净化后内容, 移除的字符数)
+        """
+        cleaned = _UNICODE_STEGO_PATTERN.sub('', content)
+        removed = len(content) - len(cleaned)
+        return cleaned, removed
+    
     def scan(self, content: str, source: str = "unknown") -> ScanResult:
         """扫描输入内容的安全威胁
         
@@ -74,6 +104,14 @@ class InputShield:
             扫描结果
         """
         self.scan_count += 1
+        
+        # === L0层：Unicode隐写净化 ===
+        content, stego_removed = self.sanitize(content)
+        if stego_removed > 0:
+            self.logger.log_system_event("unicode_stego_detected", {
+                "source": source,
+                "chars_removed": stego_removed
+            })
         
         if not content.strip():
             return ScanResult(
