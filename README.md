@@ -35,6 +35,8 @@ AI agents now have shell access, file I/O, network access, and persistent memory
 | **SpAIware** | 2024 | Cross-session memory poisoning in ChatGPT that survives restarts |
 | **ZombieAgent** | 2026 | Zero-click agent takeover with worm-like propagation |
 | **CurXecute** (CVE-2025-54135) | 2025 | MCP auto-start → arbitrary code execution in Cursor IDE |
+| **Anthropic Distillation** | 2026 | DeepSeek/Moonshot/MiniMax ran 24K fake accounts + 16M Claude conversations to extract agentic reasoning capabilities |
+| **Anthropic vs Pentagon** | 2026 | US DoD demanded unrestricted military use of Claude; Anthropic refused — proving that **model-level safety is a governance problem, not just a technical one** |
 
 OWASP ranks prompt injection as the #1 LLM risk. Yet there's no single project that **teaches both sides** — how attacks work *and* how to stop them.
 
@@ -353,6 +355,8 @@ Claude Code Security (powered by Opus 4.6) is impressive — it found vulnerabil
 **We operate at the cognitive layer** — where attacks exploit the agent's *understanding*, not its code. A narrative-disguised prompt injection (like [Moltbook 2026](research/threat-landscape.md)) doesn't trigger any code vulnerability scanner because the payload *is* natural language. Detecting it requires semantic analysis of the agent's belief system, not static analysis of its source code.
 
 These layers are complementary. A secure agent needs all three.
+
+**Emerging: Governance Security** — The Anthropic vs Pentagon standoff (Feb 2026) proves a fourth dimension: who controls what an agent *is allowed to do*? Technical safeguards mean nothing if a government can compel their removal. This project tracks governance developments as they directly impact cognitive security architecture.
 
 ## Related Projects
 
