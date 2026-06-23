@@ -142,6 +142,7 @@ These layers are complementary. A code scanner won't catch narrative-disguised p
 ## Related Projects
 
 - [OpenClaw](https://github.com/openclaw/openclaw) — AI agent platform this research targets
+- [Armorer Guard](https://github.com/ArmorerLabs/Armorer-Guard) — local Rust guard for prompt-injection, credential, exfiltration, and tool-call risk at agent runtime boundaries
 
 ## Contributing
 
